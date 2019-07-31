@@ -2,11 +2,12 @@
 #include <string.h>
 #include <unistd.h>
 #include <ctime>
+#include <pthread.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#define PORT 42000
+#define PORT 4208
 #define MAXCHAR 1024
 
 int main(){
@@ -31,9 +32,8 @@ int main(){
         printf("Client: %s\n", recieved);
 
         char tosend[MAXCHAR];
-        scanf("%s", tosend);
-        printf("read: %s\n", tosend);
-        send(server_fd, (char*)tosend, strlen(tosend), 0);
+        fgets(tosend, MAXCHAR, stdin);
+        write(client_fd, (char*)tosend, strlen(tosend));
     }
 
     return 0;

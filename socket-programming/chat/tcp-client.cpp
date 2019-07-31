@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define PORT 42000
+#define PORT 4208
 #define MAXCHAR 1024
 
 int main(){
@@ -19,13 +19,13 @@ int main(){
 
     while(1){
         char tosend[MAXCHAR];
-        scanf("%s", tosend);
-        send(client_fd, (char*)tosend, strlen(tosend), 0);
+        fgets(tosend, MAXCHAR, stdin);
+        write(client_fd, (char*)tosend, strlen(tosend));        
 
         char recieved[1024];
         int n = read(client_fd, recieved, MAXCHAR);
         recieved[n] = '\0';
-        printf("Server: %s\n", recieved);
+        printf("Server:%s\n", recieved);
     }
 
     return 0;
