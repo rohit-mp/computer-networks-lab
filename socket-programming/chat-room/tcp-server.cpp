@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 #include <unistd.h>
 #include <ctime>
 #include <pthread.h>
@@ -8,26 +9,54 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+using namespace std;
+
 #define PORT 4210
 #define MAXCHAR 1024
 
+vector<int> clients;
+
+struct arg_struct{
+    struct sockaddr_in arg1;
+    int arg2;
+    int arg3;
+    int ret;
+};
+
 void *acceptFunc(void *args){
-    vector<int> client_fd = (vector<int>)args;
-    int client_fd_temp = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrsize);
-    client_fd.push_back(client_fd_temp);
+    struct arg_struct *arg = (struct arg_struct*) args;
+    struct sockaddr_in address = arg->arg1;
+    int server_fd = arg->arg2;
+    int addrsize = arg->arg3;
+    int client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrsize);
+    printf("%d, ", client_fd);
+    clients.push_back(client_fd);
+    arg->ret = client_fd;
 }
 
 void *readFunc(void *args){
-    vector<int> client_fd = (vector<int>)args;
+    int *client_fd = (int*)args;
+
     while(1){
         char recieved[MAXCHAR];
-        int n = read(client_fd[i], recieved, MAXCHAR);
+        int n = read(*client_fd, recieved, MAXCHAR);
         recieved[n] = '\0';
         if(strcmp(recieved, "#EXIT") == 0){
+            for(int i=0; i<clients.size(); i++){
+                if(clients[i] == *client_fd){
+                    printf("%d quit\n", *client_fd);
+                    clients.erase(clients.begin() + i);
+                    i--;
+                    break;
+                }
+            }
             pthread_exit(NULL);
         }
-        for(int i=0; i<client_fd.size(); i++){
-            write(client_fd[i], (char*)tosend, strlen(tosend));
+        else{
+            for(int i=0; i<clients.size(); i++){
+                if(i == *client_fd) continue;
+                write(clients[i], (char*)recieved, strlen(recieved));
+            }
         }
     }
 }
@@ -45,18 +74,18 @@ int main(){
     listen(server_fd, 1);
 
     int addrsize = sizeof(address);
-    // int client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrsize);
 
-    vector<int> client_fd;
-
-    pthread_t acceptThread, readThread, writeThread;
-    pthread_create(&acceptThread, NULL, acceptFunc, (void*)client_fd);
-    pthread_join(acceptThread, NULL);
-    pthread_create(&readThread, NULL, readFunc, (void*)&client_fd[client_fd.size()-1], (void*)client_fd);
-
-    pthread_join(readThread, NULL);
-    pthread_kill(writeThread, SIGKILL);
-    close(server_fd);
-
+    struct arg_struct acceptargs;
+    acceptargs.arg1 = address;
+    acceptargs.arg2 = server_fd;
+    acceptargs.arg2 = addrsize;
+    while(1){
+        pthread_t acceptThread, readThread;
+        pthread_create(&acceptThread, NULL, acceptFunc, (void*)&acceptargs);
+        int client_fd = acceptargs.ret;
+        pthread_join(acceptThread, NULL); //ensures ret value is not lost but another accept
+        pthread_create(&readThread, NULL, readFunc, (void*)&client_fd);
+    }
+    
     return 0;
 }
