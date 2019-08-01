@@ -11,28 +11,10 @@
 
 using namespace std;
 
-#define PORT 4210
+#define PORT 4212
 #define MAXCHAR 1024
 
 vector<int> clients;
-
-struct arg_struct{
-    struct sockaddr_in arg1;
-    int arg2;
-    int arg3;
-    int ret;
-};
-
-void *acceptFunc(void *args){
-    struct arg_struct *arg = (struct arg_struct*) args;
-    struct sockaddr_in address = arg->arg1;
-    int server_fd = arg->arg2;
-    int addrsize = arg->arg3;
-    int client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrsize);
-    printf("%d, ", client_fd);
-    clients.push_back(client_fd);
-    arg->ret = client_fd;
-}
 
 void *readFunc(void *args){
     int *client_fd = (int*)args;
@@ -41,6 +23,7 @@ void *readFunc(void *args){
         char recieved[MAXCHAR];
         int n = read(*client_fd, recieved, MAXCHAR);
         recieved[n] = '\0';
+        printf("%d sent: %s\n", *client_fd, recieved);
         if(strcmp(recieved, "#EXIT") == 0){
             for(int i=0; i<clients.size(); i++){
                 if(clients[i] == *client_fd){
@@ -75,16 +58,16 @@ int main(){
 
     int addrsize = sizeof(address);
 
-    struct arg_struct acceptargs;
-    acceptargs.arg1 = address;
-    acceptargs.arg2 = server_fd;
-    acceptargs.arg2 = addrsize;
     while(1){
-        pthread_t acceptThread, readThread;
-        pthread_create(&acceptThread, NULL, acceptFunc, (void*)&acceptargs);
-        int client_fd = acceptargs.ret;
-        pthread_join(acceptThread, NULL); //ensures ret value is not lost but another accept
-        pthread_create(&readThread, NULL, readFunc, (void*)&client_fd);
+        pthread_t readThread;
+        int client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrsize);
+        clients.push_back(client_fd);
+        printf("%d people in chat-room (", clients.size());
+        for(int i=0; i<clients.size(); i++){
+            printf("%d, ", clients[i]);
+        }
+        printf(")\n");
+        pthread_create(&readThread, NULL, readFunc, (void*)&clients[clients.size()-1]);
     }
     
     return 0;

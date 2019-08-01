@@ -6,7 +6,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
-#define PORT 4210
+#define PORT 4212
 #define MAXCHAR 1024
 
 void *readFunc(void *args){
@@ -25,10 +25,10 @@ void *writeFunc(void *args){
         char tosend[MAXCHAR];
         fgets(tosend, MAXCHAR, stdin);
         tosend[strcspn(tosend, "\n")] = 0;
-        write(*client_fd, (char*)tosend, strlen(tosend)); 
         if(strcmp(tosend, "#EXIT") == 0){
             pthread_exit(NULL);
         }
+        write(*client_fd, (char*)tosend, strlen(tosend)); 
     }
 }
 
