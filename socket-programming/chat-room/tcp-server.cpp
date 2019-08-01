@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <string>
 #include <vector>
 #include <unistd.h>
 #include <ctime>
@@ -11,13 +12,21 @@
 
 using namespace std;
 
-#define PORT 4212
+#define PORT 4216
 #define MAXCHAR 1024
 
-vector<int> clients;
+int clients[100];
+int clientsize = 0;
+string names[100];
 
 void *readFunc(void *args){
     int *client_fd = (int*)args;
+    string client_name;
+    for(int i=0; i<clientsize; i++){
+        if(clients[i] == *client_fd){
+            client_name = names[i];
+        }
+    }
 
     while(1){
         char recieved[MAXCHAR];
@@ -25,20 +34,26 @@ void *readFunc(void *args){
         recieved[n] = '\0';
         printf("%d sent: %s\n", *client_fd, recieved);
         if(strcmp(recieved, "#EXIT") == 0){
-            for(int i=0; i<clients.size(); i++){
+            int i;
+            for(i=0; i<clientsize; i++){
                 if(clients[i] == *client_fd){
                     printf("%d quit\n", *client_fd);
-                    clients.erase(clients.begin() + i);
-                    i--;
                     break;
                 }
+            }
+            clientsize--;
+            for(; i<clientsize; i++){
+                clients[i] = clients[i+1];
+                names[i] = names[i+1];
             }
             pthread_exit(NULL);
         }
         else{
-            for(int i=0; i<clients.size(); i++){
-                if(i == *client_fd) continue;
-                write(clients[i], (char*)recieved, strlen(recieved));
+            string tosend = client_name + string(": ") + string(recieved);
+            const char* tosendchar = tosend.c_str();
+            for(int i=0; i<clientsize; i++){
+                if(*client_fd == clients[i]) continue;
+                write(clients[i], (char*)tosendchar, strlen(tosendchar));
             }
         }
     }
@@ -58,16 +73,15 @@ int main(){
 
     int addrsize = sizeof(address);
 
-    while(1){
+    while(clientsize < 100){
         pthread_t readThread;
-        int client_fd = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrsize);
-        clients.push_back(client_fd);
-        printf("%d people in chat-room (", clients.size());
-        for(int i=0; i<clients.size(); i++){
-            printf("%d, ", clients[i]);
-        }
-        printf(")\n");
-        pthread_create(&readThread, NULL, readFunc, (void*)&clients[clients.size()-1]);
+        clients[clientsize] = accept(server_fd, (struct sockaddr*)&address, (socklen_t*)&addrsize);
+        char name[30];
+        int n = read(clients[clientsize], name, 30);
+        name[n] = '\0';
+        names[clientsize] = string(name);
+        clientsize++;
+        pthread_create(&readThread, NULL, readFunc, (void*)&clients[clientsize-1]);
     }
     
     return 0;
